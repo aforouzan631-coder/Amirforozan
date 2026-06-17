@@ -1,4 +1,3 @@
-
 import os
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import (
@@ -8,9 +7,15 @@ from telegram.ext import (
     ContextTypes,
 )
 
+# 🔑 BOT TOKEN (حتماً باید در Railway Variables باشد)
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 
+# ❗ جلوگیری از کرش اگر توکن نبود
+if not BOT_TOKEN:
+    raise Exception("❌ BOT_TOKEN is missing in Railway variables")
+
 CREATOR = "امیر علی فروزان اصل"
+
 user_data = {}
 
 CONTRACT_TEXT = f"""
@@ -23,22 +28,25 @@ CONTRACT_TEXT = f"""
 ✔ حداکثر مدت 30 روز
 """
 
-# start
+# ---------------- START ----------------
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    keyboard = [[InlineKeyboardButton("📜 قرارداد", callback_data="contract")]]
+    keyboard = [
+        [InlineKeyboardButton("📜 قرارداد", callback_data="contract")]
+    ]
 
     await update.message.reply_text(
         "👋 خوش آمدید",
         reply_markup=InlineKeyboardMarkup(keyboard)
     )
 
-# buttons
+# ---------------- BUTTON HANDLER ----------------
 async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
 
     uid = query.from_user.id
 
+    # 📜 contract
     if query.data == "contract":
         keyboard = [
             [
@@ -52,11 +60,14 @@ async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
             reply_markup=InlineKeyboardMarkup(keyboard)
         )
 
+    # ❌ reject
     elif query.data == "reject":
         await query.edit_message_text("⛔ بدون قبول قرارداد نمی‌شود ادامه داد")
 
+    # ✅ accept
     elif query.data == "accept":
         user_data[uid] = {}
+
         keyboard = [
             [InlineKeyboardButton("7 روز", callback_data="days_7")],
             [InlineKeyboardButton("15 روز", callback_data="days_15")],
@@ -68,6 +79,7 @@ async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
             reply_markup=InlineKeyboardMarkup(keyboard)
         )
 
+    # 📅 days
     elif query.data.startswith("days_"):
         if uid not in user_data:
             await query.edit_message_text("❌ اول قرارداد را قبول کن")
@@ -86,6 +98,7 @@ async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
             reply_markup=InlineKeyboardMarkup(keyboard)
         )
 
+    # 📦 size
     elif query.data.startswith("size_"):
         if uid not in user_data:
             await query.edit_message_text("❌ اول قرارداد را قبول کن")
@@ -106,13 +119,14 @@ async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         await query.edit_message_text(result)
 
-# run
+# ---------------- RUN ----------------
 def main():
     app = Application.builder().token(BOT_TOKEN).build()
 
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CallbackQueryHandler(button))
 
+    print("Bot is running...")
     app.run_polling()
 
 if __name__ == "__main__":
