@@ -23,19 +23,19 @@ generated_links = {}
 
 # ---------------- CONTRACT ----------------
 CONTRACT_TEXT = f"""
-📜 قرارداد استفاده
+📜 قوانین استفاده
 
 👤 سازنده: {CREATOR}
 
-⚠️ اگر قبول نکنید امکان استفاده ندارید
+⚠️ قبل از استفاده باید قوانین را بپذیرید
 ⚠️ مسئولیت استفاده با کاربر است
-🇮🇷 برای شما از طرف من امیر علی فروزان 
+⚠️ استفاده نادرست ممنوع است
 """
 
 # ---------------- START ----------------
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     keyboard = [
-        [InlineKeyboardButton("📜 شروع ساخت کانفیگ", callback_data="start")]
+        [InlineKeyboardButton("📜 قوانین و شروع", callback_data="contract")]
     ]
 
     await update.message.reply_text(
@@ -50,13 +50,30 @@ async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     uid = query.from_user.id
 
-    # start
-    if query.data == "start":
+    # ---------------- CONTRACT ----------------
+    if query.data == "contract":
+        keyboard = [
+            [InlineKeyboardButton("✅ تایید قوانین", callback_data="accept")],
+            [InlineKeyboardButton("❌ لغو", callback_data="cancel")],
+        ]
+
+        await query.edit_message_text(
+            CONTRACT_TEXT,
+            reply_markup=InlineKeyboardMarkup(keyboard)
+        )
+
+    # ---------------- CANCEL ----------------
+    elif query.data == "cancel":
+        await query.edit_message_text("⛔ دسترسی لغو شد. برای استفاده دوباره /start را بزن")
+
+    # ---------------- ACCEPT ----------------
+    elif query.data == "accept":
         user_data[uid] = {"step": "name"}
         configs.setdefault(uid, [])
+
         await query.edit_message_text("✏️ اسم کانفیگ را وارد کن")
 
-    # days
+    # ---------------- DAYS ----------------
     elif query.data.startswith("days_"):
         if uid not in user_data:
             return
@@ -74,7 +91,7 @@ async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
             reply_markup=InlineKeyboardMarkup(keyboard)
         )
 
-    # size → server
+    # ---------------- SIZE ----------------
     elif query.data.startswith("size_"):
         if uid not in user_data:
             return
@@ -94,7 +111,7 @@ async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
             reply_markup=InlineKeyboardMarkup(keyboard)
         )
 
-    # server → final
+    # ---------------- SERVER + BUILD ----------------
     elif query.data.startswith("srv_"):
         data = user_data.get(uid)
         if not data:
@@ -115,27 +132,27 @@ async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         link = f"vless://{fake_uuid}@example.com:443?type=grpc#{name}"
 
-        configs.setdefault(uid, []).append({
+        cfg = {
             "name": name,
             "days": data.get("days"),
             "size": data.get("size"),
             "server": server,
             "link": link
-        })
+        }
 
+        configs.setdefault(uid, []).append(cfg)
         generated_links[uid] = link
 
         keyboard = [
             [InlineKeyboardButton("📋 کپی لینک", callback_data="copy")],
-            [InlineKeyboardButton("➕ ساخت کانفیگ جدید", callback_data="start")]
+            [InlineKeyboardButton("➕ ساخت کانفیگ جدید", callback_data="accept")],
+            [InlineKeyboardButton("📦 لیست کانفیگ‌ها", callback_data="list")]
         ]
 
         text = f"""
 ╔══════════════════════╗
    ⚡ CONFIG BUILDER PRO ⚡
 ╚══════════════════════╝
-
-👤 سازنده: {CREATOR}
 
 📝 اسم: {name}
 📦 حجم: {data.get('size')}
@@ -145,23 +162,37 @@ async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
 🔗 لینک:
 {link}
 
-━━━━━━━━━━━━━━━━━━━━━━
-✔ کانفیگ ساخته شد
+✔ کانفیگ ذخیره شد
 """
 
         await query.edit_message_text(text, reply_markup=InlineKeyboardMarkup(keyboard))
 
-    # copy link
+    # ---------------- COPY ----------------
     elif query.data == "copy":
         link = generated_links.get(uid)
 
         if not link:
-            await query.edit_message_text("❌ لینکی وجود ندارد")
+            await query.edit_message_text("❌ لینکی پیدا نشد")
             return
 
         await query.message.reply_text(
-            f"📋 لینک برای کپی 👇\n\n{link}\n\n(روی متن نگه دار و Copy کن)"
+            f"📋 لینک برای کپی 👇\n\n{link}\n\n(روی متن نگه دار و کپی کن)"
         )
+
+    # ---------------- LIST ----------------
+    elif query.data == "list":
+        user_cfgs = configs.get(uid, [])
+
+        if not user_cfgs:
+            await query.edit_message_text("❌ هیچ کانفیگی ساخته نشده")
+            return
+
+        text = "📦 لیست کانفیگ‌ها:\n\n"
+
+        for i, c in enumerate(user_cfgs, 1):
+            text += f"{i}. {c['name']} | {c['server']} | {c['size']} | {c['days']} روز\n"
+
+        await query.edit_message_text(text)
 
 # ---------------- TEXT ----------------
 async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -169,7 +200,7 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = update.message.text
 
     if uid not in user_data:
-        user_data[uid] = {"step": "name"}
+        return
 
     data = user_data[uid]
 
@@ -200,4 +231,4 @@ def main():
     app.run_polling()
 
 if __name__ == "__main__":
-    main()
+    main()           
