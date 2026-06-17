@@ -1,113 +1,121 @@
+import os
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import Application, CommandHandler, CallbackQueryHandler, ContextTypes
+from telegram.ext import (
+    Application,
+    CommandHandler,
+    CallbackQueryHandler,
+    ContextTypes,
+    MessageHandler,
+    filters
+)
 
-BOT_TOKEN = "YOUR_BOT_TOKEN"
+BOT_TOKEN = os.getenv("BOT_TOKEN")
 
 CREATOR = "امیر علی فروزان اصل"
 
-# وضعیت ساده کاربر
 user_data = {}
 
 CONTRACT_TEXT = f"""
-📜 قرارداد استفاده از ربات
+📜 قرارداد استفاده
 
 سازنده: {CREATOR}
 
-1. استفاده از این ربات فقط برای تست و آموزش است.
-2. هرگونه سوء استفاده بر عهده کاربر است.
-3. مدت سرویس حداکثر 30 روز می‌باشد.
-4. کاربر موظف است قوانین را رعایت کند.
+✔ استفاده فقط آموزشی است
+✔ سوء استفاده ممنوع
+✔ حداکثر مدت 30 روز
 
-اگر موافق هستید روی "قبول می‌کنم" بزنید.
+اگر موافق هستی روی دکمه بزن
 """
 
 # /start
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     keyboard = [
-        [InlineKeyboardButton("📜 خواندن قرارداد", callback_data="contract")]
+        [InlineKeyboardButton("📜 قرارداد", callback_data="contract")]
     ]
+
     await update.message.reply_text(
-        "👋 خوش آمدید\nبرای ادامه ابتدا قرارداد را بخوانید:",
+        "👋 خوش آمدید",
         reply_markup=InlineKeyboardMarkup(keyboard)
     )
 
-# کنترل دکمه‌ها
+# دکمه‌ها
 async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
 
-    user_id = query.from_user.id
+    uid = query.from_user.id
 
-    # قرارداد
     if query.data == "contract":
         keyboard = [
-            [InlineKeyboardButton("✅ قبول می‌کنم", callback_data="accept"),
-             InlineKeyboardButton("❌ قبول ندارم", callback_data="reject")]
+            [
+                InlineKeyboardButton("✅ قبول", callback_data="accept"),
+                InlineKeyboardButton("❌ رد", callback_data="reject")
+            ]
         ]
-        await query.edit_message_text(CONTRACT_TEXT, reply_markup=InlineKeyboardMarkup(keyboard))
 
-    # قبول قرارداد
-    elif query.data == "accept":
-        user_data[user_id] = {"accepted": True}
-        await show_config_menu(query)
+        await query.edit_message_text(
+            CONTRACT_TEXT,
+            reply_markup=InlineKeyboardMarkup(keyboard)
+        )
 
-    # رد قرارداد
     elif query.data == "reject":
-        await query.edit_message_text("⛔ بدون پذیرش قرارداد نمی‌توانید استفاده کنید.")
+        await query.edit_message_text("⛔ بدون قبول قرارداد نمی‌شود ادامه داد")
 
-    # انتخاب مدت
+    elif query.data == "accept":
+        user_data[uid] = {"step": "days"}
+
+        keyboard = [
+            [InlineKeyboardButton("7 روز", callback_data="days_7")],
+            [InlineKeyboardButton("15 روز", callback_data="days_15")],
+            [InlineKeyboardButton("30 روز", callback_data="days_30")]
+        ]
+
+        await query.edit_message_text(
+            "📅 مدت را انتخاب کن",
+            reply_markup=InlineKeyboardMarkup(keyboard)
+        )
+
     elif query.data.startswith("days_"):
         days = int(query.data.split("_")[1])
-        user_data[user_id]["days"] = days
-        await query.edit_message_text(f"📅 مدت انتخاب شد: {days} روز\nحالا حجم را انتخاب کنید:")
-        await show_size_menu(query)
+        user_data[uid]["days"] = days
 
-    # انتخاب حجم
+        keyboard = [
+            [InlineKeyboardButton("1GB", callback_data="size_1GB")],
+            [InlineKeyboardButton("5GB", callback_data="size_5GB")],
+            [InlineKeyboardButton("10GB", callback_data="size_10GB")]
+        ]
+
+        await query.edit_message_text(
+            "📦 حجم را انتخاب کن",
+            reply_markup=InlineKeyboardMarkup(keyboard)
+        )
+
     elif query.data.startswith("size_"):
         size = query.data.split("_")[1]
-        user_data[user_id]["size"] = size
+        user_data[uid]["size"] = size
 
-        data = user_data[user_id]
+        data = user_data[uid]
 
         result = f"""
 ✅ کانفیگ ساخته شد
 
-👤 کاربر: {query.from_user.first_name}
 📅 مدت: {data.get('days')} روز
 📦 حجم: {data.get('size')}
 
 🧑‍💻 سازنده: {CREATOR}
 """
+
         await query.edit_message_text(result)
 
-# منوی تنظیمات
-async def show_config_menu(query):
-    keyboard = [
-        [InlineKeyboardButton("7 روز", callback_data="days_7"),
-         InlineKeyboardButton("15 روز", callback_data="days_15")],
-        [InlineKeyboardButton("30 روز", callback_data="days_30")]
-    ]
-    await query.edit_message_text(
-        "📅 مدت سرویس را انتخاب کنید:",
-        reply_markup=InlineKeyboardMarkup(keyboard)
-    )
-
-# منوی حجم
-async def show_size_menu(query):
-    keyboard = [
-        [InlineKeyboardButton("1GB", callback_data="size_1GB"),
-         InlineKeyboardButton("5GB", callback_data="size_5GB")],
-        [InlineKeyboardButton("10GB", callback_data="size_10GB")]
-    ]
-    await query.message.reply_text(
-        "📦 حجم را انتخاب کنید:",
-        reply_markup=InlineKeyboardMarkup(keyboard)
-    )
+# keep alive (برای Railway)
+async def ping(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text("I'm alive ✅")
 
 def main():
     app = Application.builder().token(BOT_TOKEN).build()
 
     app.add_handler(CommandHandler("start", start))
+    app.add_handler(CommandHandler("ping", ping))
     app.add_handler(CallbackQueryHandler(button))
 
     print("Bot is running...")
