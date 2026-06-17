@@ -62,7 +62,11 @@ async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await query.edit_message_text("⛔ بدون قبول قرارداد نمی‌شود ادامه داد")
 
     elif query.data == "accept":
-        user_data[uid] = {"step": "days"}
+        elif query.data.startswith("days_"):
+    if uid not in user_data:
+        await query.edit_message_text("❌ اول قرارداد را قبول کن")
+        return
+    
 
         keyboard = [
             [InlineKeyboardButton("7 روز", callback_data="days_7")],
