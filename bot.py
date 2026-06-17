@@ -1,3 +1,4 @@
+
 import os
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import (
@@ -5,14 +6,11 @@ from telegram.ext import (
     CommandHandler,
     CallbackQueryHandler,
     ContextTypes,
-    MessageHandler,
-    filters
 )
 
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 
 CREATOR = "امیر علی فروزان اصل"
-
 user_data = {}
 
 CONTRACT_TEXT = f"""
@@ -23,22 +21,18 @@ CONTRACT_TEXT = f"""
 ✔ استفاده فقط آموزشی است
 ✔ سوء استفاده ممنوع
 ✔ حداکثر مدت 30 روز
-
-اگر موافق هستی روی دکمه بزن
 """
 
-# /start
+# start
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    keyboard = [
-        [InlineKeyboardButton("📜 قرارداد", callback_data="contract")]
-    ]
+    keyboard = [[InlineKeyboardButton("📜 قرارداد", callback_data="contract")]]
 
     await update.message.reply_text(
         "👋 خوش آمدید",
         reply_markup=InlineKeyboardMarkup(keyboard)
     )
 
-# دکمه‌ها
+# buttons
 async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
@@ -49,7 +43,7 @@ async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
         keyboard = [
             [
                 InlineKeyboardButton("✅ قبول", callback_data="accept"),
-                InlineKeyboardButton("❌ رد", callback_data="reject")
+                InlineKeyboardButton("❌ رد", callback_data="reject"),
             ]
         ]
 
@@ -62,16 +56,11 @@ async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await query.edit_message_text("⛔ بدون قبول قرارداد نمی‌شود ادامه داد")
 
     elif query.data == "accept":
-        elif query.data.startswith("days_"):
-    if uid not in user_data:
-        await query.edit_message_text("❌ اول قرارداد را قبول کن")
-        return
-    
-
+        user_data[uid] = {}
         keyboard = [
             [InlineKeyboardButton("7 روز", callback_data="days_7")],
             [InlineKeyboardButton("15 روز", callback_data="days_15")],
-            [InlineKeyboardButton("30 روز", callback_data="days_30")]
+            [InlineKeyboardButton("30 روز", callback_data="days_30")],
         ]
 
         await query.edit_message_text(
@@ -80,13 +69,16 @@ async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
 
     elif query.data.startswith("days_"):
-        days = int(query.data.split("_")[1])
-        user_data[uid]["days"] = days
+        if uid not in user_data:
+            await query.edit_message_text("❌ اول قرارداد را قبول کن")
+            return
+
+        user_data[uid]["days"] = int(query.data.split("_")[1])
 
         keyboard = [
             [InlineKeyboardButton("1GB", callback_data="size_1GB")],
             [InlineKeyboardButton("5GB", callback_data="size_5GB")],
-            [InlineKeyboardButton("10GB", callback_data="size_10GB")]
+            [InlineKeyboardButton("10GB", callback_data="size_10GB")],
         ]
 
         await query.edit_message_text(
@@ -95,8 +87,11 @@ async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
 
     elif query.data.startswith("size_"):
-        size = query.data.split("_")[1]
-        user_data[uid]["size"] = size
+        if uid not in user_data:
+            await query.edit_message_text("❌ اول قرارداد را قبول کن")
+            return
+
+        user_data[uid]["size"] = query.data.split("_")[1]
 
         data = user_data[uid]
 
@@ -111,18 +106,13 @@ async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         await query.edit_message_text(result)
 
-# keep alive (برای Railway)
-async def ping(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("I'm alive ✅")
-
+# run
 def main():
     app = Application.builder().token(BOT_TOKEN).build()
 
     app.add_handler(CommandHandler("start", start))
-    app.add_handler(CommandHandler("ping", ping))
     app.add_handler(CallbackQueryHandler(button))
 
-    print("Bot is running...")
     app.run_polling()
 
 if __name__ == "__main__":
